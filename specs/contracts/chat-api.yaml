@@ -1,0 +1,219 @@
+openapi: 3.0.3
+info:
+  title: AI Chatbot API for Todo Application
+  description: API endpoints for the AI-powered chat interface that interacts with the existing todo backend
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /api/chat/start:
+    post:
+      summary: Start a new chat conversation
+      description: Creates a new conversation session for the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                  description: The ID of the user starting the conversation
+              required:
+                - user_id
+      responses:
+        '200':
+          description: Successfully created a new conversation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation_id:
+                    type: string
+                    format: uuid
+                    description: Unique identifier for the conversation
+                  message:
+                    type: string
+                    description: Confirmation message
+        '401':
+          description: Unauthorized - invalid user credentials
+        '500':
+          description: Internal server error
+
+  /api/chat/message:
+    post:
+      summary: Send a message to the AI chatbot
+      description: Sends a user message to the AI agent and returns the response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conversation_id:
+                  type: string
+                  format: uuid
+                  description: The conversation ID
+                message:
+                  type: string
+                  description: The user's message to the AI
+                user_token:
+                  type: string
+                  description: The user's authentication token for API calls
+              required:
+                - conversation_id
+                - message
+                - user_token
+      responses:
+        '200':
+          description: AI response to the user's message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+                    description: The AI's response to the user
+                  tool_calls:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Name of the tool called
+                        arguments:
+                          type: object
+                          description: Arguments passed to the tool
+                  conversation_id:
+                    type: string
+                    format: uuid
+                    description: The conversation ID
+        '400':
+          description: Bad request - invalid input
+        '401':
+          description: Unauthorized - invalid token
+        '404':
+          description: Conversation not found
+        '500':
+          description: Internal server error
+
+  /api/chat/history/{conversation_id}:
+    get:
+      summary: Get chat history for a conversation
+      description: Retrieves the message history for a specific conversation
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The conversation ID
+      responses:
+        '200':
+          description: Chat history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+        '401':
+          description: Unauthorized - user not authenticated
+        '404':
+          description: Conversation not found
+        '500':
+          description: Internal server error
+
+  /api/chat/conversations:
+    get:
+      summary: Get user's conversations
+      description: Lists all conversations for the authenticated user
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: The user ID
+      responses:
+        '200':
+          description: List of user's conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConversationSummary'
+        '401':
+          description: Unauthorized - user not authenticated
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique message ID
+        role:
+          type: string
+          enum: [user, assistant, tool]
+          description: Role of the message sender
+        content:
+          type: string
+          description: Content of the message
+        timestamp:
+          type: string
+          format: date-time
+          description: When the message was sent
+        tool_calls:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Name of the tool called
+              arguments:
+                type: object
+                description: Arguments passed to the tool
+        tool_responses:
+          type: array
+          items:
+            type: object
+            properties:
+              result:
+                type: object
+                description: Result from the tool call
+
+    ConversationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique conversation ID
+        created_at:
+          type: string
+          format: date-time
+          description: When the conversation was created
+        last_message:
+          type: string
+          description: Preview of the last message
